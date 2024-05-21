@@ -569,13 +569,7 @@ void init_external_dt(unsigned long phys_dt, size_t dt_sz)
 	}
 
 	mtype = core_mmu_get_type_by_pa(phys_dt);
-	if (mtype == MEM_AREA_MAXTYPE) {
-		/* Map the DTB if it is not yet mapped */
-		dt->blob = core_mmu_add_mapping(MEM_AREA_EXT_DT, phys_dt,
-						dt_sz);
-		if (!dt->blob)
-			panic("Failed to map external DTB");
-	} else {
+	if (mtype == MEM_AREA_EXT_DT) {
 		/* Get the DTB address if already mapped in a memory area */
 		dt->blob = phys_to_virt(phys_dt, mtype, dt_sz);
 		if (!dt->blob) {
@@ -583,6 +577,12 @@ void init_external_dt(unsigned long phys_dt, size_t dt_sz)
 			     phys_dt);
 			panic();
 		}
+	} else {
+		/* Map the DTB if it is not yet mapped */
+		dt->blob = core_mmu_add_mapping(MEM_AREA_EXT_DT, phys_dt,
+						dt_sz);
+		if (!dt->blob)
+			panic("Failed to map external DTB");
 	}
 
 	ret = init_dt_overlay(dt, dt_sz);
