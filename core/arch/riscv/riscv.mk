@@ -42,6 +42,8 @@ ifeq ($(CFG_CORE_LARGE_PHYS_ADDR),y)
 $(call force,CFG_WITH_LPAE,y)
 endif
 
+CFG_RISCV_MMU_MODE ?= 48
+
 CFG_RISCV_SBI	 ?= n
 CFG_RISCV_M_MODE ?= y
 ifeq ($(CFG_RISCV_M_MODE),y)
