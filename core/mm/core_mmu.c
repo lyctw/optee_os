@@ -2288,7 +2288,7 @@ static paddr_t get_linear_map_end_pa(void)
 }
 #endif
 
-#if defined(CFG_TEE_CORE_DEBUG)
+#if defined(CFG_TEE_CORE_DEBUG) && !defined(RV64)
 static void check_pa_matches_va(void *va, paddr_t pa)
 {
 	TEE_Result res = TEE_ERROR_GENERIC;
@@ -2381,7 +2381,7 @@ paddr_t virt_to_phys(void *va)
 	return pa;
 }
 
-#if defined(CFG_TEE_CORE_DEBUG)
+#if defined(CFG_TEE_CORE_DEBUG) && !defined(RV64)
 static void check_va_matches_pa(paddr_t pa, void *va)
 {
 	paddr_t p = 0;
