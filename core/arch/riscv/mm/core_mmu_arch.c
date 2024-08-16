@@ -592,6 +592,11 @@ void core_mmu_set_entry_primitive(void *table, size_t level, size_t idx,
 	core_mmu_entry_set(pte, core_mmu_pte_create(pa_to_ppn(pa), pte_bits));
 }
 
+bool core_mmu_user_va_range_is_defined(void)
+{
+	return user_va_idx != -1;
+}
+
 static void set_user_va_idx(struct mmu_partition *prtn)
 {
 	struct mmu_pgt *pgt = NULL;

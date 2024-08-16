@@ -703,6 +703,15 @@ void core_mmu_get_secure_memory(paddr_t *base, paddr_size_t *size);
  */
 void core_mmu_get_ta_range(paddr_t *base, size_t *size);
 
+#ifdef CFG_WITH_LPAE
+bool core_mmu_user_va_range_is_defined(void);
+#else
+static inline bool __noprof core_mmu_user_va_range_is_defined(void)
+{
+	return true;
+}
+#endif
+
 #endif /*__ASSEMBLER__*/
 
 #endif /* __MM_CORE_MMU_H */
