@@ -40,7 +40,6 @@ static inline bool __must_check seed_get_random_u16(uint16_t *val)
 		case SEED_OPST_WAIT:
 		default:
 			cpu_relax();
-			continue;
 		}
 	} while (!timeout_elapsed(timeout));
 
