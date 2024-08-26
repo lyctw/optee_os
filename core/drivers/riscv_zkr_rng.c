@@ -13,7 +13,7 @@
 
 #define RNG_TIMEOUT_US	1000000
 
-static inline bool __must_check seed_get_random_u16(uint16_t *val)
+static bool __must_check seed_get_random_u16(uint16_t *val)
 {
 	uint64_t timeout = timeout_init_us(RNG_TIMEOUT_US);
 	uint32_t seed = 0;
