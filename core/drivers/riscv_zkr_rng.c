@@ -43,6 +43,13 @@ static bool __must_check seed_get_random_u16(uint16_t *val)
 		}
 	} while (!timeout_elapsed(timeout));
 
+	/* Consider timeout case due to normal world scheduler */
+	seed = swap_csr(CSR_SEED, 0);
+	if ((seed & SEED_OPST) == SEED_OPST_ES16) {
+		*val = seed & SEED_ENTROPY;
+		return true;
+	}
+
 	EMSG("Failed to produce a sufficient amount of entropy");
 
 	return false;
