@@ -155,7 +155,7 @@ static inline __noprof void wfi(void)
 	asm volatile ("wfi");
 }
 
-static inline __noprof void cpu_relax(void)
+static inline __noprof void riscv_cpu_pause(void)
 {
 	unsigned long dummy = 0;
 

@@ -39,7 +39,7 @@ static bool __must_check seed_get_random_u16(uint16_t *val)
 		case SEED_OPST_BIST:
 		case SEED_OPST_WAIT:
 		default:
-			cpu_relax();
+			riscv_cpu_pause();
 		}
 	} while (!timeout_elapsed(timeout));
 
