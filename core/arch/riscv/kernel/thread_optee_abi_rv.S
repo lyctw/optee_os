@@ -30,7 +30,20 @@
 FUNC thread_return_to_udomain , :
 	/* Caller should provide arguments in a0~a5 */
 #if defined(CFG_RISCV_WITH_M_MODE_SM)
+
+#if 0
 	jal	thread_return_to_udomain_by_mpxy
+#else
+	addi	sp, sp, -THREAD_MPXY_ARGS_SIZE
+	mv	a6, sp
+	jal	thread_prepare_return_to_udomain_by_mpxy
+
+	/* Load struct thread_mpxy_args into registers */
+	load_xregs sp, THREAD_MPXY_ARGS_A0, REG_A0, REG_A7
+	add	sp, sp, THREAD_MPXY_ARGS_SIZE
+	ecall
+#endif
+
 #else
 	/* Other protocol */
 #endif

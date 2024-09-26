@@ -134,6 +134,13 @@ int sbi_mpxy_send_message_withresp(uint32_t channelid, uint32_t msgid,
 void thread_return_to_udomain_by_mpxy(unsigned long arg0, unsigned long arg1,
 				      unsigned long arg2, unsigned long arg3,
 				      unsigned long arg4, unsigned long arg5);
+void thread_prepare_return_to_udomain_by_mpxy(unsigned long arg0,
+					      unsigned long arg1,
+					      unsigned long arg2,
+					      unsigned long arg3,
+					      unsigned long arg4,
+					      unsigned long arg5 __unused,
+					      struct thread_mpxy_args *args);
 void mpxy_opteed_channel_init(void);
 
 #endif /*__ASSEMBLER__*/

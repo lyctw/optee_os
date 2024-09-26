@@ -114,6 +114,34 @@ int sbi_mpxy_send_message_withresp(uint32_t channelid, uint32_t msgid,
 	return ret.error;
 }
 
+/* Only called from assembly */
+void thread_prepare_return_to_udomain_by_mpxy(unsigned long arg0,
+					      unsigned long arg1,
+					      unsigned long arg2,
+					      unsigned long arg3,
+					      unsigned long arg4,
+					      unsigned long arg5 __unused,
+					      struct thread_mpxy_args *args)
+{
+	struct sbi_mpxy *mpxy = NULL;
+	struct optee_msg_payload optee_msg = {
+		.data = {arg0, arg1, arg2, arg3, arg4},
+	};
+
+	assert((thread_get_exceptions() & THREAD_EXCP_ALL) == THREAD_EXCP_ALL);
+	mpxy = &sbi_mpxy_hart_data[get_core_pos()];
+	memcpy((void *)mpxy->shmem_base.va, &optee_msg, sizeof(optee_msg));
+
+	args->a7 = SBI_EXT_MPXY;
+	args->a6 = SBI_EXT_MPXY_SEND_MSG_WITH_RESP;
+	args->a0 = mpxy_opteed_ctx.channel_id;
+	args->a1 = OPTEED_MSG_COMPLETE;
+	args->a2 = sizeof(optee_msg);
+	args->a3 = 0;
+	args->a4 = 0;
+	args->a5 = 0;
+}
+
 void thread_return_to_udomain_by_mpxy(unsigned long arg0, unsigned long arg1,
 				      unsigned long arg2, unsigned long arg3,
 				      unsigned long arg4,
