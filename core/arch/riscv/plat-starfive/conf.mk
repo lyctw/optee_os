@@ -20,7 +20,7 @@ $(call force,CFG_WITH_STACK_CANARIES,n)
 $(call force,CFG_CORE_SANITIZE_KADDRESS,n)
 
 # Hart-related flags
-CFG_TEE_CORE_NB_CORE = 4
+CFG_TEE_CORE_NB_CORE = 5
 CFG_NUM_THREADS ?= 8
 $(call force,CFG_BOOT_SYNC_CPU,n)
 

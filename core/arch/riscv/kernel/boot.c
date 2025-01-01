@@ -109,7 +109,7 @@ static void start_secondary_cores(void)
 	size_t i = 0;
 	size_t pos = get_core_pos();
 
-	for (i = 0; i < CFG_TEE_CORE_NB_CORE; i++)
+	for (i = 1; i < (CFG_TEE_CORE_NB_CORE + 1); i++)
 		if (i != pos && IS_ENABLED(CFG_RISCV_SBI) &&
 		    sbi_hsm_hart_start(i, start_addr, i))
 			EMSG("Error starting secondary hart %zu", i);
