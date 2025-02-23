@@ -150,6 +150,9 @@ void boot_init_primary_late(unsigned long fdt,
 	init_external_dt(fdt, CFG_DTB_MAX_SIZE);
 	discover_nsec_memory();
 	update_external_dt();
+#ifdef CFG_RISCV_S_MODE
+	boot_primary_init_sbi_mpxy();
+#endif
 
 	IMSG("OP-TEE version: %s", core_v_str);
 	if (IS_ENABLED(CFG_INSECURE)) {
@@ -192,6 +195,9 @@ static void init_secondary_helper(unsigned long nsec_entry)
 	thread_init_per_cpu();
 	init_sec_mon(nsec_entry);
 	boot_secondary_init_intc();
+#ifdef CFG_RISCV_S_MODE
+	boot_secondary_init_sbi_mpxy();
+#endif
 
 	IMSG("Secondary CPU %zu initialized", pos);
 }
