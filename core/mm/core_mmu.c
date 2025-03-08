@@ -1372,7 +1372,7 @@ static bool assign_mem_va_dir(vaddr_t tee_ram_va, struct memory_map *mem_map,
 	return true;
 }
 
-static bool assign_mem_va(vaddr_t tee_ram_va, struct memory_map *mem_map)
+bool core_assign_mem_va(vaddr_t tee_ram_va, struct memory_map *mem_map)
 {
 	bool tee_ram_at_top = place_tee_ram_at_top(tee_ram_va);
 
@@ -1427,8 +1427,8 @@ static int cmp_init_mem_map(const void *a, const void *b)
 	return rc;
 }
 
-static bool mem_map_add_id_map(struct memory_map *mem_map,
-			       vaddr_t id_map_start, vaddr_t id_map_end)
+bool core_mem_map_add_id_map(struct memory_map *mem_map,
+			     vaddr_t id_map_start, vaddr_t id_map_end)
 {
 	vaddr_t start = ROUNDDOWN(id_map_start, SMALL_PAGE_SIZE);
 	vaddr_t end = ROUNDUP(id_map_end, SMALL_PAGE_SIZE);
@@ -1459,6 +1459,12 @@ static bool mem_map_add_id_map(struct memory_map *mem_map,
 	return true;
 }
 
+void core_direct_mapping(struct memory_map *mem_map, vaddr_t start_addr)
+{
+	if (!core_assign_mem_va(start_addr, mem_map))
+		panic();
+}
+
 static struct memory_map *init_mem_map(struct memory_map *mem_map,
 				       unsigned long seed,
 				       unsigned long *ret_offs)
@@ -1486,36 +1492,13 @@ static struct memory_map *init_mem_map(struct memory_map *mem_map,
 	if (IS_ENABLED(CFG_WITH_PAGER))
 		add_pager_vaspace(mem_map);
 
-	if (IS_ENABLED(CFG_CORE_ASLR) && seed) {
-		vaddr_t base_addr = start_addr + seed;
-		const unsigned int va_width = core_mmu_get_va_width();
-		const vaddr_t va_mask = GENMASK_64(va_width - 1,
-						   SMALL_PAGE_SHIFT);
-		vaddr_t ba = base_addr;
-		size_t n = 0;
-
-		for (n = 0; n < 3; n++) {
-			if (n)
-				ba = base_addr ^ BIT64(va_width - n);
-			ba &= va_mask;
-			if (assign_mem_va(ba, mem_map) &&
-			    mem_map_add_id_map(mem_map, id_map_start,
-					       id_map_end)) {
-				offs = ba - start_addr;
-				DMSG("Mapping core at %#"PRIxVA" offs %#lx",
-				     ba, offs);
-				goto out;
-			} else {
-				DMSG("Failed to map core at %#"PRIxVA, ba);
-			}
-		}
-		EMSG("Failed to map core with seed %#lx", seed);
+	if (IS_ENABLED(CFG_CORE_ASLR) && seed)
+		offs = arch_core_aslr_mapping(mem_map, seed, start_addr,
+					      id_map_start, id_map_end);
+	else {
+		core_direct_mapping(mem_map, start_addr);
 	}
 
-	if (!assign_mem_va(start_addr, mem_map))
-		panic();
-
-out:
 	qsort(mem_map->map, mem_map->count, sizeof(struct tee_mmap_region),
 	      cmp_mmap_by_lower_va);
 
