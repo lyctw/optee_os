@@ -225,6 +225,38 @@ out:
 	return ret;
 }
 
+unsigned long arch_core_aslr_mapping(struct memory_map *mem_map,
+				     unsigned long seed,
+				     vaddr_t start_addr,
+				     vaddr_t id_map_start,
+				     vaddr_t id_map_end)
+{
+	const unsigned int va_width = core_mmu_get_va_width();
+	const vaddr_t va_mask = GENMASK_64(va_width - 1, SMALL_PAGE_SHIFT);
+	vaddr_t base_addr = start_addr + seed;
+	size_t n = 0;
+
+	for (n = 0; n < 3; n++) {
+		vaddr_t ba = (n == 0) ? base_addr :
+					base_addr ^ BIT64(va_width - n);
+		ba &= va_mask;
+
+		if (core_assign_mem_va(ba, mem_map) &&
+		    core_mem_map_add_id_map(mem_map, id_map_start, id_map_end)) {
+			DMSG("Mapping core at %#"PRIxVA" offs %#lx",
+			     ba, ba - start_addr);
+			return ba - start_addr;
+		} else {
+			DMSG("Failed to map core at %#"PRIxVA"", ba);
+		}
+	}
+
+	EMSG("Failed to map core with seed %#lx, falling back to direct mapping", seed);
+	core_direct_mapping(mem_map, start_addr);
+
+	return 0;
+}
+
 bool cpu_mmu_enabled(void)
 {
 	uint32_t sctlr;
