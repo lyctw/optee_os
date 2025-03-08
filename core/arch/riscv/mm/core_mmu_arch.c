@@ -699,17 +699,6 @@ bool arch_va2pa_helper(void *va, paddr_t *pa)
 	return false;
 }
 
-int arch_core_aslr_mapping(struct memory_map *mem_map __unused,
-			   unsigned long seed __unused,
-			   vaddr_t start_addr __unused,
-			   vaddr_t id_map_start __unused,
-			   vaddr_t id_map_end __unused,
-			   unsigned long *offset __unused)
-{
-	/* Placeholder */
-	return TEE_ERROR_BAD_PARAMETERS;
-}
-
 bool arch_va_is_valid(vaddr_t va)
 {
 #ifdef RV32
@@ -732,6 +721,47 @@ bool arch_va_is_valid(vaddr_t va)
 
 	return (va & mask) == 0;
 #endif
+}
+
+int arch_core_aslr_mapping(struct memory_map *mem_map, unsigned long seed,
+			   vaddr_t start_addr, vaddr_t id_map_start,
+			   vaddr_t id_map_end, unsigned long *offset)
+{
+	const unsigned int va_width = core_mmu_get_va_width();
+	const uint64_t upper_mask = GENMASK_64(63, va_width);
+	const unsigned long msb = BIT64(va_width - 1);
+	unsigned long offs = 0;
+	vaddr_t ba = 0;
+
+	ba = start_addr + seed;
+
+	/* Align 4K page boundary */
+	ba &= ~SMALL_PAGE_MASK;
+
+	/*
+	 * If the MSB is set, map the base address to the upper
+	 * half of the virtual address space by extending 1s
+	 * to 64-bit; otherwise, map it to the bottom half by
+	 * by extending 0s to 64-bit.
+	 */
+	if (ba & msb)
+		ba |= upper_mask;
+	else
+		ba &= ~upper_mask;
+
+	/* Try to mapping va regions */
+	if (!core_assign_mem_va(ba, mem_map) ||
+	    !core_mem_map_add_id_map(mem_map, id_map_start, id_map_end)) {
+		EMSG("Failed to map core with seed %#lx", seed);
+
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
+
+	offs = ba - start_addr;
+	DMSG("Mapping core at %#"PRIxVA" offs %#lx", ba, offs);
+
+	*offset = offs;
+	return 0;
 }
 
 bool cpu_mmu_enabled(void)
