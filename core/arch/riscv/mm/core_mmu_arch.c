@@ -955,7 +955,6 @@ void core_init_mmu_prtn(struct mmu_partition *prtn, struct memory_map *mem_map)
 
 void core_init_mmu(struct memory_map *mem_map)
 {
-	uint64_t max_va = 0;
 	size_t n = 0;
 
 	static_assert((RISCV_MMU_MAX_PGTS * RISCV_MMU_PGT_SIZE) ==
@@ -965,17 +964,13 @@ void core_init_mmu(struct memory_map *mem_map)
 	core_init_mmu_prtn_tee(&default_partition, mem_map);
 
 	for (n = 0; n < mem_map->count; n++) {
-		vaddr_t va_end = mem_map->map[n].va + mem_map->map[n].size - 1;
-
-		if (va_end > max_va)
-			max_va = va_end;
+		if (!arch_va_range_is_valid(mem_map->map[n].va, mem_map->map[n].size))
+			panic("Invalid VA range in memory map");
 	}
 
 	set_user_va_idx(&default_partition);
 
 	core_init_mmu_prtn_ta(&default_partition);
-
-	assert(max_va < BIT64(RISCV_MMU_VA_WIDTH));
 }
 
 void core_init_mmu_regs(struct core_mmu_config *cfg)
