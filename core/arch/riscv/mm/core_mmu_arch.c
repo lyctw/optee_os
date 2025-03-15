@@ -633,6 +633,20 @@ unsigned long arch_core_aslr_mapping(struct memory_map *mem_map,
 	return offs;
 }
 
+bool arch_va_range_is_valid(vaddr_t va_start, size_t size)
+{
+	vaddr_t va_end = va_start + size - 1;
+
+	if (!size)
+		return false;
+#ifdef RV32
+	return va_end < BIT64(core_mmu_get_va_width());
+#else
+	return rv64_va_is_valid(va_start) &&
+	       rv64_va_is_valid(va_end);
+#endif
+}
+
 bool cpu_mmu_enabled(void)
 {
 	return read_satp();

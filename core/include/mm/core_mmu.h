@@ -677,6 +677,8 @@ unsigned long arch_core_aslr_mapping(struct memory_map *mem_map,
 				     vaddr_t id_map_start,
 				     vaddr_t id_map_end);
 
+bool arch_va_range_is_valid(vaddr_t va_start, size_t size);
+
 static inline bool core_mmu_check_end_pa(paddr_t pa, size_t len)
 {
 	paddr_t end_pa = 0;
