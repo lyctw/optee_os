@@ -36,7 +36,7 @@
 	addi	t0, t0, 1
 	lw	t1, stack_tmp_stride
 	mul	t1, t0, t1
-	la	t2, stack_tmp_rel
+	lla	t2, stack_tmp_rel
 	lw	t0, 0(t2)
 	add	t0, t0, t2
 	add	sp, t1, t0
@@ -45,7 +45,7 @@
 .macro cpu_is_ready
 #ifdef CFG_BOOT_SYNC_CPU
 	csrr	t0, CSR_XSCRATCH
-	la	t1, sem_cpu_sync
+	lla	t1, sem_cpu_sync
 	slli	t0, t0, 2
 	add	t1, t1, t0
 	li	t2, SEM_CPU_READY
@@ -57,7 +57,7 @@
 .macro set_tp
 	csrr	a3, CSR_XSCRATCH /* a3: hart_index */
 	li	a1, THREAD_CORE_LOCAL_SIZE
-	la	tp, thread_core_local
+	lla	tp, thread_core_local
 	mul	a2, a1, a3
 	add	tp, tp, a2
 	sw	a0, THREAD_CORE_LOCAL_HART_ID(tp)
@@ -85,7 +85,7 @@
 
 .macro wait_primary
 #ifdef CFG_BOOT_SYNC_CPU
-	la	t0, sem_cpu_sync
+	lla	t0, sem_cpu_sync
 	li	t2, SEM_CPU_READY
 1:
 	fence	w, w
@@ -96,7 +96,7 @@
 
 .macro wait_secondary
 #ifdef CFG_BOOT_SYNC_CPU
-	la	t0, sem_cpu_sync
+	lla	t0, sem_cpu_sync
 	li	t1, CFG_TEE_CORE_NB_CORE
 	li	t2, SEM_CPU_READY
 1:
@@ -114,8 +114,8 @@
 
 #ifdef CFG_BOOT_SYNC_CPU
 #define flush_cpu_semaphores \
-		la	t0, sem_cpu_sync_start
-		la	t1, sem_cpu_sync_end
+		lla	t0, sem_cpu_sync_start
+		lla	t1, sem_cpu_sync_end
 		fence
 #else
 #define flush_cpu_semaphores
@@ -131,7 +131,7 @@ FUNC _start , :
 	 */
 .option push
 .option norelax
-	la	gp, __global_pointer$
+	lla	gp, __global_pointer$
 .option pop
 #ifdef CFG_RISCV_M_MODE
 	csrr	a0, CSR_MHARTID
@@ -143,7 +143,7 @@ FUNC _start , :
 	mv	s1, a1		/* Save device tree address into s1 */
 #endif
 	/* Only first hart who wins lottery runs the primary boot sequence. */
-	la	a3, hart_lottery
+	lla	a3, hart_lottery
 	li	a2, 1
 	amoadd.w a3, a2, (a3)
 	/* a3 read from hart_lottery also represents the hart_index */
@@ -201,7 +201,7 @@ UNWIND(	.cantunwind)
 	 *    current hart's thread_core_local structure.
 	 */
 	mv	s2, sp
-	la	a0, threads
+	lla	a0, threads
 	LDR	a0, THREAD_CTX_STACK_VA_END(a0)
 	mv	sp, a0
 	jal	thread_get_core_local
