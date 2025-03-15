@@ -303,6 +303,6 @@ LOCAL_DATA stack_tmp_stride_rel , :
 END_DATA stack_tmp_stride_rel
 
 	.balign	8
-LOCAL_DATA boot_mmu_config , : /* struct core_mmu_config */
+DATA boot_mmu_config , : /* struct core_mmu_config */
 	.skip	CORE_MMU_CONFIG_SIZE
 END_DATA boot_mmu_config
