@@ -257,6 +257,14 @@ unsigned long arch_core_aslr_mapping(struct memory_map *mem_map,
 	return 0;
 }
 
+bool arch_va_range_is_valid(vaddr_t va_start, size_t size)
+{
+	if (!size)
+		return false;
+
+	return (va_start + size) <= BIT64(core_mmu_get_va_width());
+}
+
 bool cpu_mmu_enabled(void)
 {
 	uint32_t sctlr;
