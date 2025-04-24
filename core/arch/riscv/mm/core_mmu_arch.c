@@ -377,6 +377,21 @@ static void core_mmu_set_vpn2_ta_table(struct mmu_partition *prtn,
 	assert(core_pos < CFG_TEE_CORE_NB_CORE);
 	prtn->user_vpn2_table_va[core_pos] = pgt;
 }
+
+/*
+ * Giving a page table, return the base address of next level page table from
+ * given index of entry in it.
+ */
+static struct mmu_pgt *core_mmu_get_next_level_pgt(struct mmu_pgt *pgt,
+						   unsigned int idx)
+{
+	struct mmu_pte *pte = NULL;
+
+	pte = core_mmu_table_get_entry(pgt, idx);
+	assert(core_mmu_entry_is_branch(pte));
+
+	return core_mmu_xlat_table_entry_pa2va(pte, pgt);
+}
 #endif
 
 /*
@@ -455,8 +470,7 @@ static void core_init_mmu_prtn_ta_core(struct mmu_partition *prtn
 			pgt = core_mmu_get_root_pgt_va(prtn, core);
 		} else {
 			/* Other levels: get table from PTE of previous level */
-			pte = core_mmu_table_get_entry(pgt, 0);
-			pgt = core_mmu_xlat_table_entry_pa2va(pte, pgt);
+			pgt = core_mmu_get_next_level_pgt(pgt, 0);
 		}
 
 		core_mmu_set_info_table(&tbl_info, level, 0, pgt);
@@ -852,8 +866,7 @@ static void set_user_va_idx(struct mmu_partition *prtn)
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
 	/* Traverse from root page table to level 2 page table. */
 	while (level > CORE_MMU_VPN2_LEVEL) {
-		pte = core_mmu_table_get_entry(pgt, 0);
-		pgt = core_mmu_xlat_table_entry_pa2va(pte, pgt);
+		pgt = core_mmu_get_next_level_pgt(pgt, 0);
 		assert(pgt);
 		level--;
 	}
