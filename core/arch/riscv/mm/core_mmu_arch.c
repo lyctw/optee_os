@@ -64,6 +64,9 @@ static struct mmu_pgt pool_pgts[RISCV_MMU_MAX_PGTS]
 
 static struct mmu_pgt user_pgts[CFG_NUM_THREADS]
 	__aligned(RISCV_PGSIZE) __section(".nozi.mmu.usr_pgts");
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+static struct mmu_pgt *user_vpn2_table_va[CFG_TEE_CORE_NB_CORE];
+#endif
 #endif
 
 static int user_va_idx __nex_data = -1;
@@ -74,6 +77,9 @@ struct mmu_partition {
 	struct mmu_pgt *user_pgts;
 	unsigned int pgts_used;
 	unsigned int asid;
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+	struct mmu_pgt **user_vpn2_table_va;
+#endif
 };
 
 #ifdef CFG_DYN_CONFIG
@@ -84,7 +90,10 @@ static struct mmu_partition default_partition __nex_data  = {
 	.pool_pgts = pool_pgts,
 	.user_pgts = user_pgts,
 	.pgts_used = 0,
-	.asid = 0
+	.asid = 0,
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+	.user_vpn2_table_va = user_vpn2_table_va,
+#endif
 };
 #endif
 
@@ -354,6 +363,22 @@ static struct mmu_pgt *core_mmu_xlat_table_entry_pa2va(struct mmu_pte *pte,
 	return va;
 }
 
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+static struct mmu_pgt *core_mmu_get_vpn2_ta_table(struct mmu_partition *prtn,
+						  size_t core_pos)
+{
+	assert(core_pos < CFG_TEE_CORE_NB_CORE);
+	return prtn->user_vpn2_table_va[core_pos];
+}
+
+static void core_mmu_set_vpn2_ta_table(struct mmu_partition *prtn,
+				       size_t core_pos, struct mmu_pgt *pgt)
+{
+	assert(core_pos < CFG_TEE_CORE_NB_CORE);
+	prtn->user_vpn2_table_va[core_pos] = pgt;
+}
+#endif
+
 /*
  * For a table entry that points to a table - allocate and copy to
  * a new pointed table. This is done for the requested entry,
@@ -456,6 +481,10 @@ static void core_init_mmu_prtn_ta_core(struct mmu_partition *prtn
 
 		level--;
 	}
+
+	pgt = core_mmu_xlat_table_entry_pa2va(pte, pgt);
+	assert(pgt);
+	core_mmu_set_vpn2_ta_table(prtn, core, pgt);
 #endif
 }
 
@@ -845,20 +874,14 @@ static struct mmu_pte *
 core_mmu_get_user_mapping_entry(struct mmu_partition *prtn)
 {
 	uint32_t hartidx = thread_get_current_hartindex();
-	struct mmu_pgt *pgt = core_mmu_get_root_pgt_va(prtn, hartidx);
-	__maybe_unused struct mmu_pte *pte = NULL;
-	__maybe_unused unsigned int level = CORE_MMU_BASE_TABLE_LEVEL;
+	struct mmu_pgt *pgt = NULL;
 
 	assert(core_mmu_user_va_range_is_defined());
 
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
-	/* Traverse from root page table to level 2 page table. */
-	while (level > CORE_MMU_VPN2_LEVEL) {
-		pte = core_mmu_table_get_entry(pgt, 0);
-		pgt = core_mmu_xlat_table_entry_pa2va(pte, pgt);
-		assert(pgt);
-		level--;
-	}
+	pgt = core_mmu_get_vpn2_ta_table(prtn, hartidx);
+#else
+	pgt = core_mmu_get_root_pgt_va(prtn, hartidx);
 #endif
 	return core_mmu_table_get_entry(pgt, user_va_idx);
 }
@@ -980,6 +1003,13 @@ void core_init_mmu(struct memory_map *mem_map)
 						 CFG_NUM_THREADS,
 						 RISCV_MMU_PGT_SIZE);
 		boot_mem_add_reloc(&prtn->user_pgts);
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+		prtn->user_vpn2_table_va =
+			boot_mem_alloc(CFG_TEE_CORE_NB_CORE *
+				       sizeof(struct mmu_pgt *),
+				       alignof(sizeof(struct mmu_pgt *)));
+		boot_mem_add_reloc(&prtn->user_vpn2_table_va);
+#endif
 	}
 
 	/* Initialize default pagetables */
