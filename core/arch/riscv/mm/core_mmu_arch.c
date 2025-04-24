@@ -427,7 +427,7 @@ static void core_init_mmu_prtn_ta_core(struct mmu_partition *prtn
 	while (level > CORE_MMU_VPN2_LEVEL) {
 		if (level == CORE_MMU_BASE_TABLE_LEVEL) {
 			/* First level: get root page table */
-			pgt = core_mmu_get_root_pgt_va(prtn, get_core_pos());
+			pgt = core_mmu_get_root_pgt_va(prtn, core);
 		} else {
 			/* Other levels: get table from PTE of previous level */
 			pte = core_mmu_table_get_entry(pgt, 0);
