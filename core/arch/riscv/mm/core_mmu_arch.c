@@ -352,6 +352,7 @@ static void core_init_mmu_prtn_tee(struct mmu_partition *prtn,
 				   struct memory_map *mem_map)
 {
 	size_t n = 0;
+	uint32_t hartidx = thread_get_current_hartindex();
 
 	assert(prtn && mem_map);
 
@@ -372,15 +373,14 @@ static void core_init_mmu_prtn_tee(struct mmu_partition *prtn,
 		core_mmu_map_region(prtn, mem_map->map + n);
 
 	/*
-	 * Primary mapping table is ready at index `get_core_pos()`
-	 * whose value may not be ZERO. Take this index as copy source.
+	 * Primary mapping table is ready on current hart.
+	 * Take this index as copy source.
 	 */
-	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++) {
-		if (n == get_core_pos())
-			continue;
+	assert(hartidx == 0);
 
+	for (n = 1; n < CFG_TEE_CORE_NB_CORE; n++) {
 		memcpy(core_mmu_get_root_pgt_va(prtn, n),
-		       core_mmu_get_root_pgt_va(prtn, get_core_pos()),
+		       core_mmu_get_root_pgt_va(prtn, hartidx),
 		       RISCV_MMU_PGT_SIZE);
 	}
 }
@@ -538,7 +538,7 @@ bool arch_va2pa_helper(void *va, paddr_t *pa)
 
 	assert(pa);
 
-	pgt = core_mmu_get_root_pgt_va(prtn, get_core_pos());
+	pgt = core_mmu_get_root_pgt_va(prtn, thread_get_current_hartindex());
 
 	for (level = CORE_MMU_BASE_TABLE_LEVEL; level >= 0; level--) {
 		idx = core_mmu_pgt_idx(vaddr, level);
@@ -585,7 +585,7 @@ bool core_mmu_find_table(struct mmu_partition *prtn, vaddr_t va,
 	if (!prtn)
 		prtn = core_mmu_get_prtn();
 
-	pgt = core_mmu_get_root_pgt_va(prtn, get_core_pos());
+	pgt = core_mmu_get_root_pgt_va(prtn, thread_get_current_hartindex());
 
 	while (true) {
 		idx = core_mmu_pgt_idx(va - va_base, level);
@@ -687,7 +687,7 @@ static void set_user_va_idx(struct mmu_partition *prtn)
 	struct mmu_pte *pte = NULL;
 	unsigned int idx = 0;
 
-	pgt = core_mmu_get_root_pgt_va(prtn, get_core_pos());
+	pgt = core_mmu_get_root_pgt_va(prtn, thread_get_current_hartindex());
 
 	for (idx = 1 ; idx < RISCV_PTES_PER_PT; idx++) {
 		pte = core_mmu_table_get_entry(pgt, idx);
@@ -703,7 +703,8 @@ static void set_user_va_idx(struct mmu_partition *prtn)
 static struct mmu_pte *
 core_mmu_get_user_mapping_entry(struct mmu_partition *prtn)
 {
-	struct mmu_pgt *pgt = core_mmu_get_root_pgt_va(prtn, get_core_pos());
+	uint32_t hartidx = thread_get_current_hartindex();
+	struct mmu_pgt *pgt = core_mmu_get_root_pgt_va(prtn, hartidx);
 
 	assert(core_mmu_user_va_range_is_defined());
 
