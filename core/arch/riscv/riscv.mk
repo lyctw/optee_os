@@ -45,9 +45,16 @@ $(call force,CFG_WITH_LPAE,y)
 endif
 
 # Paged virtual-memory schemes (SvXX)
-# Currently we only support RV64. Thus, the acceptable values are 39, 48, 57.
+# For RV32, the acceptable value is 32.
+# For RV64, the acceptable values are 39, 48, 57.
 CFG_RISCV_MMU_MODE ?= 39
+ifeq ($(CFG_RV64_core),y)
 $(call cfg-check-value,RISCV_MMU_MODE,39 48 57)
+else
+ifeq ($(CFG_RV32_core),y)
+$(call cfg-check-value,RISCV_MMU_MODE,32)
+endif
+endif
 
 CFG_RISCV_SBI	 ?= n
 CFG_RISCV_M_MODE ?= y
