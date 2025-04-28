@@ -935,11 +935,17 @@ void core_mmu_get_user_va_range(vaddr_t *base, size_t *size)
 {
 	assert(core_mmu_user_va_range_is_defined());
 
+#ifdef RV64
 	if (base)
 		*base = SHIFT_U64(user_va_idx, CORE_MMU_VPN2_SHIFT);
-
 	if (size)
 		*size =  BIT64(CORE_MMU_VPN2_SHIFT);
+#else
+	if (base)
+		*base = SHIFT_U64(user_va_idx, CORE_MMU_VPN1_SHIFT);
+	if (size)
+		*size =  BIT64(CORE_MMU_VPN1_SHIFT);
+#endif
 }
 
 void core_mmu_get_user_pgdir(struct core_mmu_table_info *pgd_info)

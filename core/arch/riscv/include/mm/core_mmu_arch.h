@@ -80,8 +80,13 @@
 #define SMALL_PAGE_SHIFT	U(12)
 
 /*
+ * RV32:
  * Level 0, shift = 12, 4 KiB pages
- * Level 1, shift = 21, 2 MiB pages (4 MiB pages in Sv32)
+ * Level 1, shift = 22, 4 MiB pages
+ *
+ * RV64:
+ * Level 0, shift = 12, 4 KiB pages
+ * Level 1, shift = 21, 2 MiB pages
  * Level 2, shift = 30, 1 GiB pages
  * Level 3, shift = 39, 512 GiB pages
  * Level 4, shift = 48, 256 TiB pages
@@ -103,6 +108,12 @@
 
 /*
  * In all MMU modes, the CORE_MMU_PGDIR_LEVEL is always 0:
+ * Sv32: 4 MiB, 4 KiB
+ *                                       +-------------------------------------+
+ *                                       |31      22 21      12 11            0|
+ *                                       |-------------------------------------+
+ *                                       |  VPN[1]  |  VPN[0]  |  page offset  |
+ *                                       +-------------------------------------+
  * Sv39: 1 GiB, 2 MiB, 4 KiB
  *                            +------------------------------------------------+
  *                            |38      30 29      21 20      12 11            0|
