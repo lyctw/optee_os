@@ -346,7 +346,7 @@ END_FUNC fix_rela_dyn
  * offset instead. Stack pointers and the return address are updated.
  */
 LOCAL_FUNC enable_mmu , : , .identity_map
-	/* Set SATP from boot_mmu_config.satp[hartid] */
+	/* Set SATP from boot_mmu_config.satp[hartidx] */
 	csrr	a0, CSR_XSCRATCH
 	lla	a1, boot_mmu_config
 	LDR	a3, CORE_MMU_CONFIG_MAP_OFFSET(a1)
