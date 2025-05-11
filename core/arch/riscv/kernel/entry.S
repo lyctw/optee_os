@@ -301,9 +301,9 @@ LOCAL_FUNC reset_secondary , : , .identity_map
 UNWIND(	.cantunwind)
 	wait_primary
 	csrw	CSR_SATP, zero
+	jal	enable_mmu
 	set_sp
 	set_tp
-	jal	enable_mmu
 	cpu_is_ready
 
 	jal	boot_init_secondary
