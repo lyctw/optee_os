@@ -1059,6 +1059,8 @@ bool core_mmu_user_mapping_is_active(void)
 
 	exceptions = thread_mask_exceptions(THREAD_EXCP_ALL);
 	pte = core_mmu_get_user_mapping_entry(prtn);
+	if (!((unsigned long)pte & 0xffffffff00000000)) 
+		panic("====================");
 	ret = core_mmu_entry_is_valid(pte);
 	thread_unmask_exceptions(exceptions);
 
