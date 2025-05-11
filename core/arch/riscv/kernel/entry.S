@@ -57,14 +57,14 @@
 .endm
 
 .macro set_tp
-	csrr	a3, CSR_XSCRATCH /* a3: hart_index */
-	li	a1, THREAD_CORE_LOCAL_SIZE
+	csrr	t0, CSR_XSCRATCH /* t0: hart_index */
+	li	t1, THREAD_CORE_LOCAL_SIZE
 	la	tp, thread_core_local
 	LDR	tp, 0(tp)
-	mul	a2, a1, a3
-	add	tp, tp, a2
+	mul	t2, t1, t0
+	add	tp, tp, t2
 	sw	a0, THREAD_CORE_LOCAL_HART_ID(tp)
-	sw	a3, THREAD_CORE_LOCAL_HART_INDEX(tp)
+	sw	t0, THREAD_CORE_LOCAL_HART_INDEX(tp)
 .endm
 
 .macro wait_primary
@@ -300,9 +300,11 @@ LOCAL_FUNC reset_secondary , : , .identity_map
 UNWIND(	.cantunwind)
 	wait_primary
 	csrw	CSR_SATP, zero
+	mv	s2, a0 /* save hartid in s2 */
+	jal	enable_mmu
+	mv	a0, s2 /* restore harid in s2 */
 	set_sp
 	set_tp
-	jal	enable_mmu
 	cpu_is_ready
 
 	jal	boot_init_secondary
