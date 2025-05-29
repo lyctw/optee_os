@@ -686,8 +686,11 @@ void core_mmu_map_region(struct mmu_partition *prtn,
 
 bool arch_va2pa_helper(void *va, paddr_t *pa);
 
+#ifdef CFG_CORE_ASLR
 vaddr_t arch_aslr_base_addr(vaddr_t start_addr, uint64_t seed,
 			    unsigned int iteration_count);
+void core_mmu_relocate(size_t offs);
+#endif
 
 static inline bool core_mmu_check_end_pa(paddr_t pa, size_t len)
 {

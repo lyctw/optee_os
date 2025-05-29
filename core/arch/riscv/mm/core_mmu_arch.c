@@ -1122,3 +1122,25 @@ enum core_mmu_fault core_mmu_get_fault_type(uint32_t fault_descr)
 		return CORE_MMU_FAULT_OTHER;
 	}
 }
+
+#ifdef CFG_CORE_ASLR
+static void __maybe_unused *add_offs(void *p, size_t offs)
+{
+	assert(p);
+	return (uint8_t *)p + offs;
+}
+
+void core_mmu_relocate(size_t offs __maybe_unused)
+{
+#if (RISCV_SATP_MODE >= SATP_MODE_SV48)
+	struct mmu_partition *prtn = core_mmu_get_prtn();
+	struct mmu_pgt *pgt = NULL;
+	size_t n = 0;
+
+	for (n = 0; n < CFG_TEE_CORE_NB_CORE; n++) {
+		pgt = core_mmu_get_vpn2_ta_table(prtn, n);
+		core_mmu_set_vpn2_ta_table(prtn, n, add_offs(pgt, offs));
+	}
+#endif
+}
+#endif
