@@ -225,6 +225,11 @@ UNWIND(	.cantunwind)
 
 	/* Update relocations recorded with boot_mem_add_reloc() */
 	jal	boot_mem_relocate
+
+	la	a0, boot_mmu_config
+	LDR	a0, CORE_MMU_CONFIG_MAP_OFFSET(a0)
+	jal	core_mmu_relocate
+
 	/*
 	 * Reinitialize console, since register_serial_console() has
 	 * previously registered a PA and with ASLR the VA is different
