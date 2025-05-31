@@ -1,0 +1,144 @@
+name: OP-TEE Core Tester
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  optee-test020:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: riscv64
+
+    runs-on: ubuntu-22.04
+    env:
+      TOOLCHAIN_URL: https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.04.12
+      TOOLCHAIN_FILE: riscv64-glibc-ubuntu-22.04-gcc-nightly-2024.04.12-nightly.tar.gz
+      ARCH: riscv
+      KBUILD_BUILD_USER: riscv
+      KBUILD_BUILD_HOST: riscv-builder
+      CROSS_COMPILE: riscv64-unknown-linux-gnu-
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          path: build-dir
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses-dev \
+                              python3-dev libgnutls28-dev \
+                              python3-tomli ninja-build libslirp-dev \
+                              python3-pyelftools flex bison \
+                              swig bc \
+                              device-tree-compiler xz-utils \
+                              expect
+
+      - name: Build and install QEMU
+        working-directory: build-dir
+        run: |
+          git clone https://github.com/qemu/qemu.git -b v10.0.2 --depth 1
+          cd qemu
+          ./configure --target-list=riscv64-softmmu --enable-slirp
+          make -j
+          sudo make install
+          qemu-system-riscv64 --version
+
+      - name: Decompress SD card image
+        working-directory: build-dir
+        run: |
+          cd pre-build
+          xz -d sdcard.img.xz
+
+      - name: Setup RISC-V Toolchain
+        run: |
+          wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 0 \
+               ${TOOLCHAIN_URL}/${TOOLCHAIN_FILE}
+          sudo tar -xf ${TOOLCHAIN_FILE} -C /opt
+          export PATH="/opt/riscv/bin:$PATH"
+          ${CROSS_COMPILE}gcc -v
+
+      - name: Build OP-TEE OS
+        working-directory: build-dir
+        run: |
+          export PATH="/opt/riscv/bin:$PATH"
+          make CROSS_COMPILE64=${CROSS_COMPILE} CFG_RV64_core=y CFG_USER_TA_TARGETS=ta_rv64 PLATFORM=virt ARCH=riscv DEBUG=1 CFG_DYN_CONFIG=n CFG_DYN_STACK_CONFIG=n CFG_RISCV_MMU_MODE=57 CFG_CORE_ASLR=y CFG_TA_ASLR=n CFG_CFG_CORE_UNSAFE_MODEXP=y CFG_TA_MBEDTLS_UNSAFE_MODEXP=y CFG_TEE_CORE_NB_CORE=2 CFG_NUM_THREADS=2 CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 CFG_UNWIND=y CFG_IN_TREE_EARLY_TAS=trusted_keys/f04a0fe7-1f5d-4b9b-abf7-619b85b4ce8c CFG_SEMIHOSTING_CONSOLE_FILE=NULL CFG_TEE_CORE_DEBUG=y CFG_16550_UART=n CFG_RISCV_PLIC=n CFG_TDDRAM_START=0xF1000000 CFG_TDDRAM_SIZE=0x01000000 ta-targets=ta_rv64 MARCH=rv64imafdc MABI=lp64d -j
+
+      - name: Build U-Boot
+        working-directory: build-dir
+        run: |
+          export PATH="/opt/riscv/bin:$PATH"
+          export OPTEE_DIR=$PWD
+          wget https://gitlab.com/riseproject/riscv-optee/u-boot/-/archive/dev-optee-mpxy-v5/u-boot-dev-optee-mpxy-v5.tar.gz
+          tar xf u-boot-dev-optee-mpxy-v5.tar.gz
+          cd u-boot-dev-optee-mpxy-v5
+          make ARCH=riscv qemu-riscv64_spl_defconfig
+          make ARCH=riscv OPENSBI=${OPTEE_DIR}/pre-build/fw_dynamic.bin TEE=${OPTEE_DIR}/out/riscv-plat-virt/core/tee.bin -j
+          mv spl/u-boot-spl $OPTEE_DIR/pre-build
+          mv u-boot.itb $OPTEE_DIR/pre-build
+
+      - name: Run QEMU
+        working-directory: build-dir
+        run: |
+          cd pre-build
+          cat > test_optee.exp << 'EOF'
+          #!/usr/bin/expect -f
+          set timeout 600
+          spawn qemu-system-riscv64 -M virt -cpu rv64,zkr=on -dtb qemu_rv64_virt_domain.dtb -m 4096 -smp 2 -bios u-boot-spl -device loader,file=u-boot.itb,addr=0x80200000 -device virtio-blk-device,drive=hd0 -drive format=raw,file=sdcard.img,id=hd0,if=none -device virtio-net-pci,netdev=net0 -netdev user,id=net0 -nographic
+          expect {
+            "login:" {
+              send "root\r"
+              expect "# "
+              send "time xtest\r"
+              expect {
+                -re {[0-9]+ test cases of which 0 failed} {
+                  puts "\nxtest passed successfully!"
+                  exit 0
+                }
+                -re {[0-9]+ test cases of which ([1-9][0-9]*) failed} {
+                  puts "\nxtest failed with test case failures"
+                  exit 1
+                }
+                timeout {
+                  puts "\nTimeout waiting for xtest to complete"
+                  exit 1
+                }
+              }
+            }
+            "Waiting for root device" {
+              puts "\nFailed to find root device"
+              exit 1
+            }
+            timeout {
+              puts "\nTimeout waiting for system boot"
+              exit 1
+            }
+          }
+          EOF
+          chmod +x test_optee.exp
+          ./test_optee.exp
+
+
+      #- name: Prepare Artifacts
+      #  run: |
+      #    mkdir -p artifact
+      #    cp -v build-dir/arch/riscv/boot/dts/*/*.dtb artifact/
+      #    cp -v build-dir/arch/riscv/boot/Image artifact/
+
+      #- name: Create Archive
+      #  run: |
+      #    tar -zcvf linux-mainline-${{ matrix.name }}.tar.gz artifact
+
+      #- name: Upload Artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: linux-mainline-${{ matrix.name }}.tar.gz
+      #    path: linux-mainline-${{ matrix.name }}.tar.gz
+      #    retention-days: 30
