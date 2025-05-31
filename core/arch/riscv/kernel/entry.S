@@ -223,8 +223,6 @@ UNWIND(	.cantunwind)
 	STR	a1, THREAD_CORE_LOCAL_ABT_STACK_VA_END(tp)
 
 	/* Update relocations recorded with boot_mem_add_reloc() */
-	la	a0, boot_mmu_config
-	LDR	a0, CORE_MMU_CONFIG_MAP_OFFSET(a0)
 	jal	boot_mem_relocate
 
 	la	a0, boot_mmu_config
