@@ -65,7 +65,7 @@ static struct mmu_pgt pool_pgts[RISCV_MMU_MAX_PGTS]
 static struct mmu_pgt user_pgts[CFG_NUM_THREADS]
 	__aligned(RISCV_PGSIZE) __section(".nozi.mmu.usr_pgts");
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
-static uint16_t user_vpn2_table_idx[CFG_TEE_CORE_NB_CORE];
+static struct mmu_pgt *user_vpn2_table_va[CFG_TEE_CORE_NB_CORE];
 #endif
 #endif
 
@@ -78,7 +78,7 @@ struct mmu_partition {
 	unsigned int pgts_used;
 	unsigned int asid;
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
-	uint16_t *user_vpn2_table_idx;
+	struct mmu_pgt **user_vpn2_table_va;
 #endif
 };
 
@@ -92,7 +92,7 @@ static struct mmu_partition default_partition __nex_data  = {
 	.pgts_used = 0,
 	.asid = 0,
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
-	.user_vpn2_table_idx = user_vpn2_table_idx,
+	.user_vpn2_table_va = user_vpn2_table_va,
 #endif
 };
 #endif
@@ -386,29 +386,14 @@ static struct mmu_pgt *core_mmu_get_vpn2_ta_table(struct mmu_partition *prtn,
 						  size_t core_pos)
 {
 	assert(core_pos < CFG_TEE_CORE_NB_CORE);
-
-	uint16_t idx = 0;
-	struct mmu_pgt *pgt = NULL;
-
-	idx = prtn->user_vpn2_table_idx[core_pos];
-	pgt = &prtn->pool_pgts[idx];
-	DMSG("core_mmu_get_vpn2_ta_table, core_pos=%ld, prtn->pool_pgts=%p, pgt=%p, idx=%d\n",
-		core_pos, prtn->pool_pgts, pgt, idx);
-	return pgt;
+	return prtn->user_vpn2_table_va[core_pos];
 }
 
 static void core_mmu_set_vpn2_ta_table(struct mmu_partition *prtn,
 				       size_t core_pos, struct mmu_pgt *pgt)
 {
 	assert(core_pos < CFG_TEE_CORE_NB_CORE);
-
-	uint16_t idx = 0;
-
-	idx = ((vaddr_t)pgt - (vaddr_t)prtn->pool_pgts) / RISCV_MMU_PGT_SIZE;
-	assert(idx < prtn->pgts_used);
-	prtn->user_vpn2_table_idx[core_pos] = idx;
-	DMSG("core_mmu_set_vpn2_ta_table, core_pos=%ld, prtn->pool_pgts=%p, pgt=%p, idx=%d\n",
-		core_pos, prtn->pool_pgts, pgt, idx);
+	prtn->user_vpn2_table_va[core_pos] = pgt;
 }
 
 /*
@@ -1082,10 +1067,11 @@ void core_init_mmu(struct memory_map *mem_map)
 						 RISCV_MMU_PGT_SIZE);
 		boot_mem_add_reloc(&prtn->user_pgts);
 #if (RISCV_SATP_MODE >= SATP_MODE_SV48)
-		prtn->user_vpn2_table_idx =
-			boot_mem_alloc(CFG_TEE_CORE_NB_CORE * sizeof(uint16_t),
-				       alignof(uint16_t));
-		boot_mem_add_reloc(&prtn->user_vpn2_table_idx);
+		prtn->user_vpn2_table_va =
+			boot_mem_alloc(CFG_TEE_CORE_NB_CORE *
+				       sizeof(struct mmu_pgt *),
+				       alignof(sizeof(struct mmu_pgt *)));
+		boot_mem_add_reloc(&prtn->user_vpn2_table_va);
 #endif
 	}
 
