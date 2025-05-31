@@ -287,6 +287,17 @@ UNWIND(	.cantunwind)
 	jal	console_init
 #endif
 
+#ifdef CFG_CORE_ASLR
+#if defined(CFG_DYN_STACK_CONFIG)
+	/*
+	 * thread_core_local holds only one core and thread_core_count is 1
+	 * so tp points to the updated pointer for thread_core_local.
+	 */
+	la	t0, thread_core_local
+	STR	tp, 0(t0)
+#endif
+#endif
+
 	jal	boot_init_primary_early
 
 	mv	a0, s1		/* s1 contains saved device tree address */
