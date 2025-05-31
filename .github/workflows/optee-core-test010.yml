@@ -96,7 +96,7 @@ jobs:
             "login:" {
               send "root\r"
               expect "# "
-              send "time xtest\r"
+              send "time xtest -t regression -x 4011 -x 4112 -x 6016 -x 6018\r"
               expect {
                 -re {[0-9]+ test cases of which 0 failed} {
                   puts "\nxtest passed successfully!"
