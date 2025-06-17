@@ -69,7 +69,7 @@ jobs:
         working-directory: build-dir
         run: |
           export PATH="/opt/riscv/bin:$PATH"
-          make CROSS_COMPILE64=${CROSS_COMPILE} CFG_RV64_core=y CFG_USER_TA_TARGETS=ta_rv64 PLATFORM=virt ARCH=riscv DEBUG=1 CFG_DYN_CONFIG=n CFG_DYN_STACK_CONFIG=n CFG_RISCV_MMU_MODE=39 CFG_CORE_ASLR=y CFG_TA_ASLR=n CFG_CFG_CORE_UNSAFE_MODEXP=y CFG_TA_MBEDTLS_UNSAFE_MODEXP=y CFG_TEE_CORE_NB_CORE=2 CFG_NUM_THREADS=2 CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 CFG_UNWIND=y CFG_IN_TREE_EARLY_TAS=trusted_keys/f04a0fe7-1f5d-4b9b-abf7-619b85b4ce8c CFG_SEMIHOSTING_CONSOLE_FILE=NULL CFG_TEE_CORE_DEBUG=y CFG_16550_UART=n CFG_RISCV_PLIC=n CFG_TDDRAM_START=0xF1000000 CFG_TDDRAM_SIZE=0x01000000 ta-targets=ta_rv64 MARCH=rv64imafdc MABI=lp64d -j
+          make CROSS_COMPILE64=${CROSS_COMPILE} CFG_RV64_core=y CFG_USER_TA_TARGETS=ta_rv64 PLATFORM=virt ARCH=riscv DEBUG=1 CFG_DYN_CONFIG=n CFG_DYN_STACK_CONFIG=n CFG_RISCV_MMU_MODE=39 CFG_CORE_ASLR=y CFG_TA_ASLR=n CFG_CFG_CORE_UNSAFE_MODEXP=y CFG_TA_MBEDTLS_UNSAFE_MODEXP=y CFG_TEE_CORE_NB_CORE=2 CFG_NUM_THREADS=2 CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 CFG_UNWIND=y CFG_IN_TREE_EARLY_TAS=trusted_keys/f04a0fe7-1f5d-4b9b-abf7-619b85b4ce8c CFG_SEMIHOSTING_CONSOLE=y CFG_TEE_CORE_DEBUG=y CFG_16550_UART=n CFG_RISCV_PLIC=n CFG_TDDRAM_START=0xF1000000 CFG_TDDRAM_SIZE=0x01000000 ta-targets=ta_rv64 MARCH=rv64imafdc MABI=lp64d -j
 
       - name: Build U-Boot
         working-directory: build-dir
@@ -91,7 +91,16 @@ jobs:
           cat > test_optee.exp << 'EOF'
           #!/usr/bin/expect -f
           set timeout 1500
-          spawn qemu-system-riscv64 -M virt -cpu rv64,zkr=on -dtb qemu_rv64_virt_domain.dtb -m 4096 -smp 2 -bios u-boot-spl -device loader,file=u-boot.itb,addr=0x80200000 -device virtio-blk-device,drive=hd0 -drive format=raw,file=sdcard.img,id=hd0,if=none -device virtio-net-pci,netdev=net0 -netdev user,id=net0 -nographic
+          spawn qemu-system-riscv64 -M virt -cpu rv64,zkr=on \
+                                    -m 4096 \
+                                    -smp 2 \
+                                    -dtb qemu_rv64_virt_domain.dtb \
+                                    -bios u-boot-spl \
+                                    -device loader,file=u-boot.itb,addr=0x80200000 \
+                                    -device virtio-blk-device,drive=hd0 -drive format=raw,file=sdcard.img,id=hd0,if=none \
+                                    -device virtio-net-pci,netdev=net0 -netdev user,id=net0 \
+                                    -semihosting-config enable=on \
+                                    -nographic
           expect {
             "login:" {
               send "root\r"
@@ -124,7 +133,7 @@ jobs:
           EOF
           chmod +x test_optee.exp
           ./test_optee.exp
-
+          cat optee.log | head -300
 
       #- name: Prepare Artifacts
       #  run: |
