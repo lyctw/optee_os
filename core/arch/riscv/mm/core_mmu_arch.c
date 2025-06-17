@@ -726,10 +726,8 @@ vaddr_t arch_aslr_base_addr(vaddr_t start_addr, uint64_t seed,
 	const vaddr_t va_extended_mask = GENMASK_64(63, va_width);
 	vaddr_t base_addr = start_addr + seed;
 
-	if (iteration_count) {
-		base_addr &= ~GENMASK_64(va_width - 2,
-					 va_width - 1 - iteration_count);
-	}
+	if (iteration_count)
+		base_addr ^= BIT64(va_width - iteration_count);
 
 	/*
 	 * If the MSB is set, map the base address to the top
