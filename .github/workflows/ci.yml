@@ -722,3 +722,93 @@ jobs:
           # See commit cb03400251f9 ("Squashed commit upgrading to mbedtls-3.6.2")
           # and commit 85df256c4a67 ("libmbedtls: add CFG_CORE_UNSAFE_MODEXP and CFG_TA_MBEDTLS_UNSAFE_MODEXP")
           make -j$(nproc) check CFG_CORE_UNSAFE_MODEXP=y
+
+  QEMU_riscv64_check:
+    name: make check (QEMU riscv64)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y make swig bc cpio rsync expect
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build rootfs
+        run: |
+          export FORCE_UNSAFE_CONFIGURE=1 # Prevent Buildroot error when building as root
+          export OPTEE_SRC=$(pwd)
+          # Apply staging patches from RISE GitLab repo:
+          # https://gitlab.com/riseproject/riscv-optee/optee_os/-/commits/dev-optee-mpxy-v6?ref_type=heads
+          curl https://gitlab.com/riseproject/riscv-optee/optee_os/-/commit/39aa84d5d2fb4fe3cd279fd19f1ab6cf7c40871a.patch | git apply
+          curl https://gitlab.com/riseproject/riscv-optee/optee_os/-/commit/afdee73c3d1231fe680e26041ce3d373ad78eabf.patch | git apply
+          curl https://gitlab.com/riseproject/riscv-optee/optee_os/-/commit/cac3ca0573786f11affeefbb82597c4ffc56e448.patch | git apply
+          curl https://gitlab.com/riseproject/riscv-optee/optee_os/-/commit/55d7bb58014cd6c10277921c0fa28d628eff3eed.patch | git apply
+          curl https://gitlab.com/riseproject/riscv-optee/optee_os/-/commit/814978eb15b92c3b97255a8c000f44cd84aac008.patch | git apply
+          cd $HOME
+          git clone https://gitlab.com/riseproject/riscv-optee/buildroot.git -b dev-optee-mpxy-v6 --depth 1
+          cd buildroot
+          cat > local.mk << EOF
+          OPTEE_OS_OVERRIDE_SRCDIR = ${OPTEE_SRC}
+          EOF
+          cat local.mk
+          make qemu_riscv64_virt_optee_defconfig
+          sed -i 's|^BR2_TARGET_OPTEE_OS_ADDITIONAL_VARIABLES=".*"|BR2_TARGET_OPTEE_OS_ADDITIONAL_VARIABLES="ARCH=riscv DEBUG=1 CFG_DYN_CONFIG=n CFG_DYN_STACK_CONFIG=n CFG_RISCV_MMU_MODE=39 CFG_CORE_ASLR=n CFG_TA_ASLR=n CFG_CORE_UNSAFE_MODEXP=y CFG_TA_MBEDTLS_UNSAFE_MODEXP=y CFG_TEE_CORE_NB_CORE=2 CFG_NUM_THREADS=2 CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 CFG_UNWIND=y CFG_SEMIHOSTING_CONSOLE=y CFG_TEE_CORE_DEBUG=y CFG_CORE_DEBUG_CHECK_STACKS=y CFG_16550_UART=n CFG_RISCV_PLIC=n CFG_TDDRAM_START=0xF1000000 CFG_TDDRAM_SIZE=0x01000000"|' .config
+          make
+          ls -lah ./output/images
+          export PATH=$PWD/output/host/bin:$PATH
+          pushd ./output/images
+          cat > test_optee.exp << 'EOF'
+          #!/usr/bin/expect -f
+          set timeout 1500
+          spawn qemu-system-riscv64 -M virt -cpu rv64,zkr=on \
+                                    -m 4096 \
+                                    -smp 2 \
+                                    -dtb qemu_rv64_virt_domain.dtb \
+                                    -bios u-boot-spl \
+                                    -device loader,file=u-boot.itb,addr=0x80200000 \
+                                    -device virtio-blk-device,drive=hd0 -drive format=raw,file=sdcard.img,id=hd0,if=none \
+                                    -device virtio-net-pci,netdev=net0 -netdev user,id=net0 \
+                                    -semihosting-config enable=on \
+                                    -nographic
+          expect {
+            "login:" {
+              send "root\r"
+              expect "# "
+              send "xtest -t regression 4001 4003\r"
+              expect {
+                -re {[0-9]+ test cases of which 0 failed} {
+                  puts "\nxtest passed successfully!"
+                  exit 0
+                }
+                -re {[0-9]+ test cases of which ([1-9][0-9]*) failed} {
+                  puts "\nxtest failed with test case failures"
+                  exit 1
+                }
+                timeout {
+                  puts "\nTimeout waiting for xtest to complete"
+                  exit 1
+                }
+              }
+            }
+            "Waiting for root device" {
+              puts "\nFailed to find root device"
+              exit 1
+            }
+            timeout {
+              puts "\nTimeout waiting for system boot"
+              exit 1
+            }
+          }
+          EOF
+          chmod +x test_optee.exp
+          ./test_optee.exp
+          cat optee.log | head -300
+          rm optee.log
+          popd
+          sed -i 's|^BR2_TARGET_OPTEE_OS_ADDITIONAL_VARIABLES=".*"|BR2_TARGET_OPTEE_OS_ADDITIONAL_VARIABLES="ARCH=riscv DEBUG=1 CFG_DYN_CONFIG=n CFG_DYN_STACK_CONFIG=n CFG_RISCV_MMU_MODE=48 CFG_CORE_ASLR=y CFG_TA_ASLR=y CFG_CORE_UNSAFE_MODEXP=y CFG_TA_MBEDTLS_UNSAFE_MODEXP=y CFG_TEE_CORE_NB_CORE=2 CFG_NUM_THREADS=2 CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 CFG_UNWIND=y CFG_SEMIHOSTING_CONSOLE=y CFG_TEE_CORE_DEBUG=y CFG_CORE_DEBUG_CHECK_STACKS=y CFG_16550_UART=n CFG_RISCV_PLIC=n CFG_TDDRAM_START=0xF1000000 CFG_TDDRAM_SIZE=0x01000000"|' .config
+          make {optee-os,uboot}-rebuild all
+          pushd ./output/images
+          ./test_optee.exp
+          cat optee.log | head -300
+          rm optee.log
+          popd
